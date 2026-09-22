@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.font-display {
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* seleção de texto e foco visitável na paleta da marca, em vez do azul
+   genérico do browser — pequeno detalhe que dá consistência à marca */
+::selection {
+  background: #bd5b2833;
+  color: #1a1d24;
+}
+
+*:focus-visible {
+  outline: 2px solid #bd5b28;
+  outline-offset: 2px;
+}
+
+/* transições suaves por omissão em elementos interativos, sem
+   precisar de repetir "transition-colors" em cada botão/link */
+button,
+a,
+input,
+textarea,
+select {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease,
+    box-shadow 150ms ease, opacity 150ms ease, transform 100ms ease;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* placeholders mais discretos e consistentes entre navegadores */
+::placeholder {
+  color: #1a1d2455;
+}
+
+/* esconde a barra de scroll horizontal nos carrosséis de chips, sem
+   perder a funcionalidade de scroll */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
