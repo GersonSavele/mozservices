@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { Button, ErrorText, Input, TopBar } from "../../components/UI";
 import CategoryPicker from "../../components/CategoryPicker";
+import LocationCaptureButton from "../../components/LocationCaptureButton";
 import type { Categoria } from "../../types/database.types";
 
 export default function RegisterProvider() {
@@ -12,6 +13,8 @@ export default function RegisterProvider() {
   const [senha, setSenha] = useState("");
   const [cidade, setCidade] = useState("");
   const [bairro, setBairro] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [idCategoria, setIdCategoria] = useState("");
   const [tituloServico, setTituloServico] = useState("");
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -54,6 +57,8 @@ export default function RegisterProvider() {
       telefone,
       cidade,
       bairro,
+      latitude,
+      longitude,
     });
 
     if (insertError) {
@@ -119,6 +124,14 @@ export default function RegisterProvider() {
           <Input label="Cidade" required value={cidade} onChange={(e) => setCidade(e.target.value)} />
           <Input label="Bairro" required value={bairro} onChange={(e) => setBairro(e.target.value)} />
         </div>
+
+        <LocationCaptureButton
+          jaDefinida={latitude !== null}
+          onCapturada={(lat, lng) => {
+            setLatitude(lat);
+            setLongitude(lng);
+          }}
+        />
 
         <ErrorText>{erro}</ErrorText>
         <Button type="submit" className="w-full mt-1" disabled={carregando}>

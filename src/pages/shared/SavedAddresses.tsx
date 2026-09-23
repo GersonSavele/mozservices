@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Trash2, Plus } from "lucide-react";
+import { MapPin, Trash2, Plus, Navigation } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { Button, Card, ErrorText, Input, TopBar } from "../../components/UI";
+import LocationCaptureButton from "../../components/LocationCaptureButton";
 import type { Endereco } from "../../types/database.types";
 
 export default function SavedAddresses() {
@@ -19,6 +20,8 @@ export default function SavedAddresses() {
   const [cidade, setCidade] = useState("");
   const [bairro, setBairro] = useState("");
   const [referencia, setReferencia] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
 
   useEffect(() => {
     carregar();
@@ -52,6 +55,8 @@ export default function SavedAddresses() {
         cidade,
         bairro,
         referencia: referencia || null,
+        latitude,
+        longitude,
       })
       .select()
       .single();
@@ -67,6 +72,8 @@ export default function SavedAddresses() {
     setCidade("");
     setBairro("");
     setReferencia("");
+    setLatitude(null);
+    setLongitude(null);
     setABater(false);
   }
 
@@ -101,7 +108,15 @@ export default function SavedAddresses() {
                 <MapPin className="w-4 h-4 text-ink/60" strokeWidth={1.75} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold">{end.nome_endereco}</p>
+                <p className="text-[13px] font-semibold flex items-center gap-1.5">
+                  {end.nome_endereco}
+                  {end.latitude != null && (
+                    <span className="flex items-center gap-0.5 text-[9px] font-bold text-green bg-green/10 px-1.5 py-0.5 rounded-full">
+                      <Navigation className="w-2.5 h-2.5" strokeWidth={2.5} />
+                      GPS
+                    </span>
+                  )}
+                </p>
                 <p className="text-[11.5px] text-ink/60 mt-0.5">
                   {end.bairro}, {end.cidade}
                 </p>
@@ -138,6 +153,14 @@ export default function SavedAddresses() {
                 placeholder="Ex: perto do mercado central"
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
+              />
+              <LocationCaptureButton
+                jaDefinida={latitude !== null}
+                onCapturada={(lat, lng) => {
+                  setLatitude(lat);
+                  setLongitude(lng);
+                }}
+                descricao="Marca a localização exata deste endereço, para poder ser usado em buscas por proximidade no futuro."
               />
               <div className="flex gap-2.5">
                 <Button type="button" variant="ghost" className="flex-1" onClick={() => setABater(false)}>

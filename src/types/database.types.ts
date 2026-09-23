@@ -112,6 +112,8 @@ export interface Endereco {
   cidade: string;
   bairro: string;
   referencia: string | null;
+  latitude: number | null;
+  longitude: number | null;
   data_criacao: string;
 }
 

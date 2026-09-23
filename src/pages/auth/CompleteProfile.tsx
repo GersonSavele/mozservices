@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { Button, ErrorText, Input } from "../../components/UI";
 import CategoryPicker from "../../components/CategoryPicker";
+import LocationCaptureButton from "../../components/LocationCaptureButton";
 import type { Categoria } from "../../types/database.types";
 
 type Papel = "cliente" | "prestador" | null;
@@ -19,6 +20,8 @@ export default function CompleteProfile() {
   const [bairro, setBairro] = useState("");
   const [idCategoria, setIdCategoria] = useState("");
   const [tituloServico, setTituloServico] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -94,6 +97,8 @@ export default function CompleteProfile() {
         telefone,
         cidade,
         bairro,
+        latitude,
+        longitude,
       });
       if (error) {
         setEnviando(false);
@@ -185,6 +190,16 @@ export default function CompleteProfile() {
               onChange={(e) => setBairro(e.target.value)}
             />
           </div>
+
+          {papel === "prestador" && (
+            <LocationCaptureButton
+              jaDefinida={latitude !== null}
+              onCapturada={(lat, lng) => {
+                setLatitude(lat);
+                setLongitude(lng);
+              }}
+            />
+          )}
 
           <ErrorText>{erro}</ErrorText>
 

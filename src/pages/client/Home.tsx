@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin } from "lucide-react";
+import { MapPin, Navigation, LoaderCircle } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { Screen, StarRatingDisplay } from "../../components/UI";
 import CategoryIcon from "../../components/CategoryIcon";
 import BottomNav from "../../components/BottomNav";
+import { calcularDistanciaKm, formatarDistancia, obterLocalizacaoAtual } from "../../lib/geo";
 import type { Categoria } from "../../types/database.types";
 
 interface ServicoComPrestador {
@@ -21,6 +22,8 @@ interface ServicoComPrestador {
     media_avaliacao: number;
     total_avaliacoes: number;
     disponivel: boolean;
+    latitude: number | null;
+    longitude: number | null;
   };
 }
 
@@ -32,6 +35,11 @@ export default function Home() {
   const [busca, setBusca] = useState("");
   const [resultados, setResultados] = useState<ServicoComPrestador[]>([]);
   const [carregando, setCarregando] = useState(true);
+
+  const [pertoDeMim, setPertoDeMim] = useState(false);
+  const [obtendoLocalizacao, setObtendoLocalizacao] = useState(false);
+  const [localizacaoCliente, setLocalizacaoCliente] = useState<{ lat: number; lng: number } | null>(null);
+  const [erroLocalizacao, setErroLocalizacao] = useState("");
 
   useEffect(() => {
     supabase
@@ -47,7 +55,7 @@ export default function Home() {
       let query = supabase
         .from("servicos")
         .select(
-          "id_servico, titulo, id_prestador, categorias(icone), prestadores(nome, bairro, cidade, foto_perfil_url, media_avaliacao, total_avaliacoes, disponivel)"
+          "id_servico, titulo, id_prestador, categorias(icone), prestadores(nome, bairro, cidade, foto_perfil_url, media_avaliacao, total_avaliacoes, disponivel, latitude, longitude)"
         )
         .eq("ativo", true)
         .limit(30);
@@ -61,6 +69,44 @@ export default function Home() {
     }
     buscar();
   }, [categoriaAtiva, busca]);
+
+  async function ativarPertoDeMim() {
+    if (pertoDeMim) {
+      setPertoDeMim(false);
+      return;
+    }
+    setObtendoLocalizacao(true);
+    setErroLocalizacao("");
+    try {
+      const { latitude, longitude } = await obterLocalizacaoAtual();
+      setLocalizacaoCliente({ lat: latitude, lng: longitude });
+      setPertoDeMim(true);
+    } catch (err: any) {
+      setErroLocalizacao(err.message ?? "Não foi possível obter a tua localização.");
+    }
+    setObtendoLocalizacao(false);
+  }
+
+  // calcula a distância de cada prestador (quando tem coordenadas
+  // guardadas) e, se "Perto de mim" estiver ativo, ordena por
+  // proximidade — prestadores sem localização guardada ficam no fim
+  const resultadosComDistancia = useMemo(() => {
+    const comDistancia = resultados.map((s) => {
+      const lat = s.prestadores?.latitude;
+      const lng = s.prestadores?.longitude;
+      const distanciaKm =
+        localizacaoCliente && lat != null && lng != null
+          ? calcularDistanciaKm(localizacaoCliente.lat, localizacaoCliente.lng, lat, lng)
+          : null;
+      return { ...s, distanciaKm };
+    });
+    if (!pertoDeMim) return comDistancia;
+    return [...comDistancia].sort((a, b) => {
+      if (a.distanciaKm == null) return 1;
+      if (b.distanciaKm == null) return -1;
+      return a.distanciaKm - b.distanciaKm;
+    });
+  }, [resultados, localizacaoCliente, pertoDeMim]);
 
   return (
     <Screen>
@@ -79,6 +125,20 @@ export default function Home() {
       </div>
 
       <div className="flex gap-2 px-5 py-3 overflow-x-auto scrollbar-none">
+        <button
+          onClick={ativarPertoDeMim}
+          disabled={obtendoLocalizacao}
+          className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border whitespace-nowrap flex-shrink-0 disabled:opacity-60 ${
+            pertoDeMim ? "bg-green border-green text-white" : "border-green/40 text-green"
+          }`}
+        >
+          {obtendoLocalizacao ? (
+            <LoaderCircle className="w-3.5 h-3.5 animate-spin" strokeWidth={2} />
+          ) : (
+            <Navigation className="w-3.5 h-3.5" strokeWidth={2} />
+          )}
+          Perto de mim
+        </button>
         <button
           onClick={() => setCategoriaAtiva(null)}
           className={`text-xs font-medium px-3 py-1.5 rounded-full border whitespace-nowrap ${
@@ -102,13 +162,16 @@ export default function Home() {
           </button>
         ))}
       </div>
+      {erroLocalizacao && (
+        <p className="text-[11px] text-red-600 px-5 -mt-1 mb-2">{erroLocalizacao}</p>
+      )}
 
       <div className="flex-1 px-5 pb-4 flex flex-col gap-2.5">
         {carregando && <p className="text-xs text-ink/50 mt-4">A procurar prestadores…</p>}
-        {!carregando && resultados.length === 0 && (
+        {!carregando && resultadosComDistancia.length === 0 && (
           <p className="text-xs text-ink/50 mt-4">Nenhum prestador encontrado para essa busca.</p>
         )}
-        {resultados.map((s) => (
+        {resultadosComDistancia.map((s) => (
           <button
             key={s.id_servico}
             onClick={() => navigate(`/servico/${s.id_servico}`)}
@@ -142,11 +205,18 @@ export default function Home() {
                   {s.prestadores?.media_avaliacao?.toFixed(1) ?? "—"}
                   <span className="text-ink/40 font-normal">({s.prestadores?.total_avaliacoes ?? 0})</span>
                 </span>
-                {s.prestadores?.bairro && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-steel" />
-                    {s.prestadores.bairro}
+                {s.distanciaKm != null ? (
+                  <span className="flex items-center gap-1 text-green font-medium">
+                    <Navigation className="w-3.5 h-3.5" />
+                    {formatarDistancia(s.distanciaKm)}
                   </span>
+                ) : (
+                  s.prestadores?.bairro && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-steel" />
+                      {s.prestadores.bairro}
+                    </span>
+                  )
                 )}
               </p>
             </div>

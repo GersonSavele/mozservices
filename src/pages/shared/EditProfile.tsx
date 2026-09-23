@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { Button, ErrorText, Input, Textarea, TopBar } from "../../components/UI";
 import ImageUploader from "../../components/ImageUploader";
+import LocationCaptureButton from "../../components/LocationCaptureButton";
 
 export default function EditProfile() {
   const { perfil, cliente, prestador, session, refetchPerfil } = useAuth();
@@ -17,6 +18,8 @@ export default function EditProfile() {
   const [bio, setBio] = useState(prestador?.bio ?? "");
   const [fotoUrl, setFotoUrl] = useState<string | null>(usuario?.foto_perfil_url ?? null);
   const [disponivel, setDisponivel] = useState(prestador?.disponivel ?? true);
+  const [latitude, setLatitude] = useState<number | null>(usuario?.latitude ?? null);
+  const [longitude, setLongitude] = useState<number | null>(usuario?.longitude ?? null);
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
 
@@ -35,6 +38,8 @@ export default function EditProfile() {
       cidade,
       bairro,
       foto_perfil_url: fotoUrl,
+      latitude,
+      longitude,
     };
     if (perfil === "prestador") {
       payload.bio = bio;
@@ -95,6 +100,13 @@ export default function EditProfile() {
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               placeholder="Fale sobre a sua experiência e especialidade…"
+            />
+            <LocationCaptureButton
+              jaDefinida={latitude !== null}
+              onCapturada={(lat, lng) => {
+                setLatitude(lat);
+                setLongitude(lng);
+              }}
             />
             <label className="flex items-center gap-2.5 mb-4 text-xs font-medium">
               <input
