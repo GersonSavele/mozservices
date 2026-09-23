@@ -23,6 +23,9 @@ import EditSchedule from "./pages/shared/EditSchedule";
 import Profile from "./pages/shared/Profile";
 import EditProfile from "./pages/shared/EditProfile";
 import ServiceImages from "./pages/provider/ServiceImages";
+import SavedAddresses from "./pages/shared/SavedAddresses";
+import PrivacySecurity from "./pages/shared/PrivacySecurity";
+import HelpSupport from "./pages/shared/HelpSupport";
 
 export default function App() {
   return (
@@ -133,6 +136,30 @@ export default function App() {
         element={
           <ProtectedRoute>
             <EditProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/perfil/enderecos"
+        element={
+          <ProtectedRoute>
+            <SavedAddresses />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/perfil/privacidade"
+        element={
+          <ProtectedRoute>
+            <PrivacySecurity />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/perfil/ajuda"
+        element={
+          <ProtectedRoute>
+            <HelpSupport />
           </ProtectedRoute>
         }
       />

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, Clock, MessageSquare, Briefcase } from "lucide-react";
+import { CalendarDays, Clock, MessageSquare, Briefcase, Phone, MessageCircle } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { enviarPush } from "../../lib/notificacoesPush";
 import { useAuth } from "../../context/AuthContext";
-import { Button, Card, StatusBadge, TopBar } from "../../components/UI";
+import { Button, Card, ErrorText, StarRatingDisplay, StatusBadge, TopBar } from "../../components/UI";
 import type { StatusSolicitacao } from "../../types/database.types";
 
 interface Detalhe {
@@ -35,6 +35,7 @@ export default function RequestDetail() {
   const [horaProposta, setHoraProposta] = useState("");
   const [processando, setProcessando] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
 
   useEffect(() => {
     carregarTudo();
@@ -73,44 +74,60 @@ export default function RequestDetail() {
   async function atualizarStatus(novoStatus: StatusSolicitacao) {
     if (!idSolicitacao || !pedido) return;
     setProcessando(true);
+    setErro("");
 
-    const { error } = await supabase
+    // .select().single() é de propósito: sem isto, uma atualização
+    // bloqueada pelo RLS (ou por qualquer outro motivo) não dá erro
+    // nenhum — só devolve 0 linhas em silêncio, e o ecrã fica preso
+    // no estado antigo sem explicação nenhuma.
+    const { data: linhaAtualizada, error } = await supabase
       .from("solicitacoes")
       .update({ status: novoStatus })
-      .eq("id_solicitacao", idSolicitacao);
+      .eq("id_solicitacao", idSolicitacao)
+      .select()
+      .single();
 
-    if (!error && novoStatus === "aceite" && dataProposta && horaProposta) {
-      await supabase.from("agendamentos").insert({
-        id_solicitacao: idSolicitacao,
-        data_servico: dataProposta,
-        hora_servico: horaProposta,
-      });
+    if (error || !linhaAtualizada) {
+      setProcessando(false);
+      setErro(
+        error?.message ??
+          "A atualização não foi aplicada (0 linhas alteradas). Verifica as políticas de RLS da tabela solicitacoes."
+      );
+      return;
     }
 
-    if (!error) {
-      const destinoCliente = perfil === "prestador";
-      const mensagensPorStatus: Record<string, { titulo: string; corpo: string }> = {
-        aceite: {
-          titulo: "Pedido aceite!",
-          corpo: `O prestador aceitou o seu pedido de "${pedido.servicos?.titulo}"`,
-        },
-        recusada: {
-          titulo: "Pedido recusado",
-          corpo: `O prestador não pôde aceitar o seu pedido de "${pedido.servicos?.titulo}"`,
-        },
-        concluida: {
-          titulo: "Serviço concluído",
-          corpo: `O serviço "${pedido.servicos?.titulo}" foi marcado como concluído. Avalie a experiência!`,
-        },
-      };
-      if (destinoCliente && mensagensPorStatus[novoStatus]) {
-        enviarPush({
-          destinatarioId: pedido.id_cliente,
-          tipoDestinatario: "cliente",
-          ...mensagensPorStatus[novoStatus],
-          url: `/solicitacao/${idSolicitacao}`,
-        });
+    if (novoStatus === "aceite" && dataProposta && horaProposta) {
+      const { error: agendamentoError } = await supabase.from("agendamentos").upsert(
+        { id_solicitacao: idSolicitacao, data_servico: dataProposta, hora_servico: horaProposta },
+        { onConflict: "id_solicitacao" }
+      );
+      if (agendamentoError) {
+        setErro("Pedido aceite, mas não foi possível guardar a data: " + agendamentoError.message);
       }
+    }
+
+    const destinoCliente = perfil === "prestador";
+    const mensagensPorStatus: Record<string, { titulo: string; corpo: string }> = {
+      aceite: {
+        titulo: "Pedido aceite!",
+        corpo: `O prestador aceitou o seu pedido de "${pedido.servicos?.titulo}"`,
+      },
+      recusada: {
+        titulo: "Pedido recusado",
+        corpo: `O prestador não pôde aceitar o seu pedido de "${pedido.servicos?.titulo}"`,
+      },
+      concluida: {
+        titulo: "Serviço concluído",
+        corpo: `O serviço "${pedido.servicos?.titulo}" foi marcado como concluído. Avalie a experiência!`,
+      },
+    };
+    if (destinoCliente && mensagensPorStatus[novoStatus]) {
+      enviarPush({
+        destinatarioId: pedido.id_cliente,
+        tipoDestinatario: "cliente",
+        ...mensagensPorStatus[novoStatus],
+        url: `/solicitacao/${idSolicitacao}`,
+      });
     }
 
     setProcessando(false);
@@ -171,7 +188,33 @@ export default function RequestDetail() {
               </span>
             </div>
           )}
+
+          {/* Assim que o pedido é aceite, cada parte vê como contactar a outra diretamente */}
+          {(pedido.status === "aceite" || pedido.status === "concluida") && outraParte?.telefone && (
+            <div className="flex gap-2.5 mt-3 pt-3 border-t border-ink/8">
+              <a
+                href={`tel:${outraParte.telefone}`}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-ink/12 py-2.5 text-xs font-semibold hover:bg-ink/[0.03]"
+              >
+                <Phone className="w-3.5 h-3.5" strokeWidth={1.75} />
+                Ligar
+              </a>
+              <a
+                href={`https://wa.me/${outraParte.telefone.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-green/30 bg-green/8 text-green py-2.5 text-xs font-semibold hover:bg-green/15"
+              >
+                <MessageCircle className="w-3.5 h-3.5" strokeWidth={1.75} />
+                Enviar mensagem
+              </a>
+            </div>
+          )}
         </Card>
+
+        <div className="mb-4">
+          <ErrorText>{erro}</ErrorText>
+        </div>
 
         {/* Prestador: pedido pendente — aceitar/recusar com data proposta */}
         {perfil === "prestador" && pedido.status === "pendente" && (
@@ -211,10 +254,9 @@ export default function RequestDetail() {
         {avaliacao && (
           <Card className="p-4 mb-4">
             <h4 className="text-xs font-semibold text-ink/70 tracking-wide uppercase mb-2">Avaliação</h4>
-            <p className="text-ochre mb-1 text-sm">
-              {"★".repeat(avaliacao.nota)}
-              <span className="text-ink/15">{"★".repeat(5 - avaliacao.nota)}</span>
-            </p>
+            <div className="mb-1.5">
+              <StarRatingDisplay value={avaliacao.nota} size={16} />
+            </div>
             {avaliacao.comentario && (
               <p className="text-[13px] text-ink/70 leading-relaxed">{avaliacao.comentario}</p>
             )}

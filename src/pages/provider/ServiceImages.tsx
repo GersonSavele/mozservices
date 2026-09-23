@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { X } from "lucide-react";
+import { X, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { Card, ErrorText, TopBar } from "../../components/UI";
@@ -13,12 +13,19 @@ export default function ServiceImages() {
   const navigate = useNavigate();
   const [servico, setServico] = useState<Servico | null>(null);
   const [imagens, setImagens] = useState<ImagemServico[]>([]);
+  const [totalPedidos, setTotalPedidos] = useState(0);
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
+  const [eliminando, setEliminando] = useState(false);
 
   useEffect(() => {
     if (!idServico) return;
     supabase.from("servicos").select("*").eq("id_servico", idServico).single().then(({ data }) => setServico(data));
+    supabase
+      .from("solicitacoes")
+      .select("id_solicitacao", { count: "exact", head: true })
+      .eq("id_servico", idServico)
+      .then(({ count }) => setTotalPedidos(count ?? 0));
     carregarImagens();
   }, [idServico]);
 
@@ -73,6 +80,43 @@ export default function ServiceImages() {
     carregarImagens();
   }
 
+  async function eliminarServico() {
+    if (!idServico || !servico) return;
+
+    const aviso =
+      totalPedidos > 0
+        ? `Este serviço tem ${totalPedidos} solicitação(ões) associada(s), que também serão apagadas. Esta ação não pode ser desfeita. Queres continuar?`
+        : "Esta ação não pode ser desfeita. Queres eliminar este serviço?";
+    if (!window.confirm(`Eliminar "${servico.titulo}"?\n\n${aviso}`)) return;
+
+    setEliminando(true);
+    setErro("");
+
+    // limpa primeiro os ficheiros no Storage (best-effort — se falhar,
+    // não impede a eliminação do serviço, só deixa ficheiros órfãos)
+    const paths = imagens
+      .map((img) => {
+        const marker = "/portfolio/";
+        const idx = img.url_imagem.indexOf(marker);
+        return idx !== -1 ? img.url_imagem.slice(idx + marker.length) : null;
+      })
+      .filter((p): p is string => !!p);
+    if (paths.length > 0) {
+      await supabase.storage.from("portfolio").remove(paths);
+    }
+
+    // apagar o serviço cria cascata para imagens_servico, solicitacoes,
+    // agendamentos, avaliacoes e notificacoes ligadas a ele (ver schema)
+    const { error } = await supabase.from("servicos").delete().eq("id_servico", idServico);
+
+    setEliminando(false);
+    if (error) {
+      setErro("Não foi possível eliminar o serviço: " + error.message);
+      return;
+    }
+    navigate("/painel", { replace: true });
+  }
+
   if (!servico || !prestador) return <div className="p-6 text-sm text-ink/50">A carregar…</div>;
 
   return (
@@ -111,6 +155,15 @@ export default function ServiceImages() {
             nenhum.
           </p>
         </Card>
+
+        <button
+          onClick={eliminarServico}
+          disabled={eliminando}
+          className="w-full flex items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-red-500/25 text-red-600 py-3 text-sm font-semibold mt-4 hover:bg-red-500/[0.04] disabled:opacity-50"
+        >
+          <Trash2 className="w-4 h-4" strokeWidth={1.75} />
+          {eliminando ? "A eliminar…" : "Eliminar serviço"}
+        </button>
       </div>
     </div>
   );

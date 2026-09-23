@@ -41,11 +41,23 @@ export default function EditProfile() {
       payload.disponivel = disponivel;
     }
 
-    const { error } = await supabase.from(tabela).update(payload).eq(idColuna, session.user.id);
+    // .select().single() confirma que a linha foi mesmo alterada —
+    // sem isto, um update bloqueado (RLS ou outro motivo) não dá
+    // erro nenhum, só devolve 0 linhas em silêncio, e o formulário
+    // parece "guardar" sem nada mudar de verdade.
+    const { data: linhaAtualizada, error } = await supabase
+      .from(tabela)
+      .update(payload)
+      .eq(idColuna, session.user.id)
+      .select()
+      .single();
 
     setSalvando(false);
-    if (error) {
-      setErro(error.message);
+    if (error || !linhaAtualizada) {
+      setErro(
+        error?.message ??
+          "A atualização não foi aplicada (0 linhas alteradas). Verifica as políticas de RLS."
+      );
       return;
     }
     await refetchPerfil();

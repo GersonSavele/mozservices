@@ -104,6 +104,17 @@ export interface Avaliacao {
   data_avaliacao: string;
 }
 
+export interface Endereco {
+  id_endereco: string;
+  id_usuario: string;
+  tipo_usuario: "cliente" | "prestador";
+  nome_endereco: string;
+  cidade: string;
+  bairro: string;
+  referencia: string | null;
+  data_criacao: string;
+}
+
 export interface Notificacao {
   id_notificacao: string;
   id_solicitacao: string | null;

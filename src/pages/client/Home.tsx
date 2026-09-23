@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { MapPin } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
-import { Screen } from "../../components/UI";
+import { Screen, StarRatingDisplay } from "../../components/UI";
 import CategoryIcon from "../../components/CategoryIcon";
 import BottomNav from "../../components/BottomNav";
 import type { Categoria } from "../../types/database.types";
@@ -11,10 +12,12 @@ interface ServicoComPrestador {
   id_servico: string;
   titulo: string;
   id_prestador: string;
+  categorias: { icone: string | null } | null;
   prestadores: {
     nome: string;
     bairro: string | null;
     cidade: string | null;
+    foto_perfil_url: string | null;
     media_avaliacao: number;
     total_avaliacoes: number;
     disponivel: boolean;
@@ -44,7 +47,7 @@ export default function Home() {
       let query = supabase
         .from("servicos")
         .select(
-          "id_servico, titulo, id_prestador, prestadores(nome, bairro, cidade, media_avaliacao, total_avaliacoes, disponivel)"
+          "id_servico, titulo, id_prestador, categorias(icone), prestadores(nome, bairro, cidade, foto_perfil_url, media_avaliacao, total_avaliacoes, disponivel)"
         )
         .eq("ativo", true)
         .limit(30);
@@ -109,22 +112,42 @@ export default function Home() {
           <button
             key={s.id_servico}
             onClick={() => navigate(`/servico/${s.id_servico}`)}
-            className="border border-ink/10 rounded-xl p-3 flex gap-3 items-center bg-white text-left"
+            className="border border-ink/10 rounded-xl p-3.5 flex gap-3.5 items-center bg-white text-left hover:border-ink/20 transition-colors"
           >
-            <div className="w-11 h-11 rounded-lg bg-steel text-white flex items-center justify-center font-display font-bold text-sm flex-shrink-0">
-              {s.prestadores?.nome?.slice(0, 2).toUpperCase()}
+            <div className="relative flex-shrink-0">
+              <div className="w-14 h-14 rounded-xl bg-steel text-white flex items-center justify-center font-display font-bold text-base overflow-hidden">
+                {s.prestadores?.foto_perfil_url ? (
+                  <img
+                    src={s.prestadores.foto_perfil_url}
+                    alt={s.prestadores.nome}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  s.prestadores?.nome?.slice(0, 2).toUpperCase()
+                )}
+              </div>
+              {s.prestadores?.disponivel && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green border-2 border-white" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold flex items-center gap-1.5">
-                {s.prestadores?.nome}
-                {s.prestadores?.disponivel && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-green inline-block" />
-                )}
+              <p className="text-[15px] font-semibold truncate">{s.prestadores?.nome}</p>
+              <p className="text-[12.5px] text-ink/55 mt-0.5 flex items-center gap-1.5">
+                <CategoryIcon slug={s.categorias?.icone} className="w-3.5 h-3.5 text-rust flex-shrink-0" />
+                <span className="truncate">{s.titulo}</span>
               </p>
-              <p className="text-[11px] text-ink/50">{s.titulo}</p>
-              <p className="text-[10.5px] text-ink/60 mt-1">
-                ⭐ {s.prestadores?.media_avaliacao?.toFixed(1) ?? "—"} (
-                {s.prestadores?.total_avaliacoes ?? 0}) · {s.prestadores?.bairro}
+              <p className="text-[12px] text-ink/60 mt-1.5 flex items-center gap-2.5">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <StarRatingDisplay value={s.prestadores?.media_avaliacao ?? 0} size={12} />
+                  {s.prestadores?.media_avaliacao?.toFixed(1) ?? "—"}
+                  <span className="text-ink/40 font-normal">({s.prestadores?.total_avaliacoes ?? 0})</span>
+                </span>
+                {s.prestadores?.bairro && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-steel" />
+                    {s.prestadores.bairro}
+                  </span>
+                )}
               </p>
             </div>
           </button>

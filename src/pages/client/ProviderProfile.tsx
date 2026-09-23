@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Star, BadgeCheck, Phone, ArrowLeft } from "lucide-react";
+import { BadgeCheck, Phone, ArrowLeft } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { enviarPush } from "../../lib/notificacoesPush";
 import { useAuth } from "../../context/AuthContext";
-import { Button, Card, ErrorText } from "../../components/UI";
+import { Button, Card, ErrorText, StarRatingDisplay } from "../../components/UI";
 import CategoryIcon from "../../components/CategoryIcon";
 import type { ImagemServico, Prestador, Servico } from "../../types/database.types";
 
@@ -119,8 +119,8 @@ export default function ProviderProfile() {
               <CategoryIcon slug={servico.categorias?.icone} className="w-3.5 h-3.5" />
               {servico.titulo} · {prestador.bairro}, {prestador.cidade}
             </p>
-            <p className="text-xs font-semibold mt-1.5 flex items-center gap-1">
-              <Star className="w-3.5 h-3.5 text-ochre fill-ochre" />
+            <p className="text-xs font-semibold mt-1.5 flex items-center gap-1.5">
+              <StarRatingDisplay value={prestador.media_avaliacao ?? 0} size={13} />
               {prestador.media_avaliacao?.toFixed(1) ?? "—"}
               <span className="text-ink/45 font-normal ml-0.5">
                 ({prestador.total_avaliacoes} avaliações)

@@ -1,31 +1,19 @@
 import { useNavigate } from "react-router-dom";
-import { User, MapPin, Bell, ShieldCheck, HelpCircle, LogOut, ChevronRight } from "lucide-react";
+import { User, MapPin, ShieldCheck, HelpCircle, LogOut, ChevronRight } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { usePushNotifications } from "../../hooks/usePushNotifications";
 import { Card, Screen } from "../../components/UI";
 import BottomNav from "../../components/BottomNav";
 
 export default function Profile() {
   const { cliente, prestador, perfil, signOut } = useAuth();
   const navigate = useNavigate();
-  const { permissao, ativando, ativar } = usePushNotifications();
   const usuario = perfil === "cliente" ? cliente : prestador;
 
-  const items: { icon: typeof User; label: string; to?: string; action?: () => void }[] = [
+  const items: { icon: typeof User; label: string; to: string }[] = [
     { icon: User, label: "Editar perfil", to: "/perfil/editar" },
-    { icon: MapPin, label: "Endereços salvos" },
-    {
-      icon: Bell,
-      label:
-        permissao === "granted"
-          ? "Notificações ativadas"
-          : ativando
-          ? "A ativar…"
-          : "Ativar notificações push",
-      action: permissao === "granted" ? undefined : ativar,
-    },
-    { icon: ShieldCheck, label: "Privacidade e segurança" },
-    { icon: HelpCircle, label: "Ajuda e suporte" },
+    { icon: MapPin, label: "Endereços salvos", to: "/perfil/enderecos" },
+    { icon: ShieldCheck, label: "Privacidade e segurança", to: "/perfil/privacidade" },
+    { icon: HelpCircle, label: "Ajuda e suporte", to: "/perfil/ajuda" },
   ];
 
   return (
@@ -51,10 +39,7 @@ export default function Profile() {
           {items.map((item) => (
             <button
               key={item.label}
-              onClick={() => {
-                if (item.to) navigate(item.to);
-                else if (item.action) item.action();
-              }}
+              onClick={() => navigate(item.to)}
               className="flex justify-between items-center py-3.5 px-4 text-sm w-full text-left hover:bg-ink/[0.02]"
             >
               <div className="flex items-center gap-3">
